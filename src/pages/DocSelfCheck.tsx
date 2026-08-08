@@ -34,91 +34,107 @@ const stepLabels: Record<CheckStep, string> = {
   report: '生成报告',
 };
 
-// 模拟检查结果数据
+// 根据上传的文件生成更真实的模拟检查结果
 function generateMockResult(files: UploadedFile[], course: string, grade: string): CheckResult {
-  const consistencyIssues: CheckResultItem[] = [
+  const fileNames = files.map((f) => f.name);
+  const formatIssues: CheckResultItem[] = [];
+  const consistencyIssues: CheckResultItem[] = [];
+  const courseMatches: CheckResultItem[] = [];
+  const toConfirmItems: CheckResultItem[] = [];
+
+  // 每个文件生成 1-3 个格式问题
+  const formatTemplates = [
+    { category: '格式-字体', desc: '正文使用了宋体小四，规范要求为宋体五号' },
+    { category: '格式-页码', desc: '页码位置在页脚右侧，规范要求在页脚居中' },
+    { category: '格式-标题', desc: '三级标题编号格式不统一，有的用"1.1.1"，有的用"（1）"' },
+    { category: '格式-行距', desc: '参考文献部分行距为1.5倍，规范要求为固定值20磅' },
+    { category: '格式-缩进', desc: '正文首行缩进为2字符中的0.85cm，在允许范围内' },
+    { category: '格式-对齐', desc: '表格内文字居中对齐，规范要求为左对齐' },
+  ];
+
+  fileNames.forEach((fname, idx) => {
+    const count = 1 + (idx % 3); // 1-3个问题
+    for (let i = 0; i < count; i++) {
+      const t = formatTemplates[(idx + i) % formatTemplates.length];
+      formatIssues.push({
+        id: `fi-${idx}-${i}`,
+        category: t.category,
+        description: t.desc,
+        location: `${fname} · 第${(i + 1) * 2}页`,
+      });
+    }
+  });
+
+  // 跨文件一致性问题（2-3个）
+  const consistencyTemplates = [
     {
-      id: 'ci-1',
       category: '内容-数据',
-      description: `${grade}级课程大纲中，"${course}"的学时数与教学计划不一致（大纲48学时/计划64学时）`,
-      location: '课程大纲.docx · 第3页',
+      desc: `各文件中"${course}"的学时数存在不一致，大纲为48学时，授课计划小计为64学时`,
+      loc: '课程大纲 · 学时分配 / 授课计划 · 合计',
     },
     {
-      id: 'ci-2',
       category: '逻辑-结构',
-      description: '考核方式在大纲和进度表中表述不一致，大纲写"平时成绩40%+期末60%"，进度表写"平时30%+期末70%"',
-      location: '考核方案.docx · 第2节',
+      desc: '考核方式在大纲和进度表中表述不一致，大纲写"平时成绩40%+期末60%"，进度表写"平时30%+期末70%"',
+      loc: '考核方案 · 第2节 / 教学进度表',
     },
     {
-      id: 'ci-3',
       category: '内容-数据',
-      description: '课程目标中"能力目标"第3条与毕业要求对应关系不明确',
-      location: '课程大纲.docx · 目标部分',
+      desc: '课程目标中"能力目标"第3条与毕业要求对应关系不明确',
+      loc: '课程大纲 · 课程目标部分',
     },
   ];
 
-  const courseMatches: CheckResultItem[] = [
-    {
-      id: 'cm-1',
-      category: '课程-定位',
-      description: `"${course}"课程定位与${grade}级人才培养方案中的专业核心课程定位匹配度较高`,
-      location: '培养方案对照',
-    },
-    {
+  const consCount = Math.min(2 + Math.floor(fileNames.length / 3), 3);
+  for (let i = 0; i < consCount; i++) {
+    const t = consistencyTemplates[i];
+    consistencyIssues.push({
+      id: `ci-${i}`,
+      category: t.category,
+      description: t.desc,
+      location: t.loc,
+    });
+  }
+
+  // 课程定位匹配
+  courseMatches.push({
+    id: 'cm-1',
+    category: '课程-定位',
+    description: `"${course}"在${grade}级培养方案中已收录，课程定位匹配`,
+    location: `${grade}级课程总表`,
+  });
+  if (fileNames.length >= 3) {
+    courseMatches.push({
       id: 'cm-2',
       category: '课程-前置',
-      description: '已识别到先修课程为"动画概论"，后修课程为"动画后期合成"，课程衔接合理',
-      location: '课程体系图',
-    },
-  ];
+      description: '已识别到先修课程为"动画概论"，课程衔接关系合理',
+      location: '课程体系对照',
+    });
+  }
 
-  const formatIssues: CheckResultItem[] = [
-    {
-      id: 'fi-1',
-      category: '格式-字体',
-      description: '正文使用了宋体小四，规范要求为宋体五号',
-      location: `${files[0]?.name || '文件1'} · 全文`,
-    },
-    {
-      id: 'fi-2',
-      category: '格式-页码',
-      description: '页码位置在页脚右侧，规范要求在页脚居中',
-      location: `${files[1]?.name || '文件2'} · 页脚`,
-    },
-    {
-      id: 'fi-3',
-      category: '格式-标题',
-      description: '三级标题编号格式不统一，有的用"1.1.1"，有的用"（1）"',
-      location: `${files[0]?.name || '文件1'} · 第2章`,
-    },
-    {
-      id: 'fi-4',
-      category: '格式-行距',
-      description: '参考文献部分行距为1.5倍，规范要求为固定值20磅',
-      location: `${files[2]?.name || '文件3'} · 末尾`,
-    },
-  ];
-
-  const toConfirmItems: CheckResultItem[] = [
-    {
+  // 待确认项
+  if (fileNames.length >= 2) {
+    toConfirmItems.push({
       id: 'tc-1',
       category: '内容-争议',
-      description: '课程内容中是否需要增加AI辅助设计相关章节？当前大纲未提及',
-      location: '课程大纲.docx · 内容部分',
-    },
-    {
-      id: 'tc-2',
-      category: '逻辑-确认',
-      description: '实践环节占比是否合理？当前为30%，同类院校通常为40-50%',
-      location: '教学进度表.xlsx',
-    },
-  ];
+      description: `实践环节占比是否合理？当前约为30%，同类院校${course}课程通常为40-50%`,
+      location: '教学进度表',
+    });
+  }
+  toConfirmItems.push({
+    id: 'tc-2',
+    category: '逻辑-确认',
+    description: `${course}是否需要补充线上学习资源链接？当前大纲未列出`,
+    location: '课程大纲 · 资源部分',
+  });
+
+  const errors = consistencyIssues.length + Math.floor(formatIssues.length / 2);
+  const warnings = formatIssues.length - Math.floor(formatIssues.length / 2);
 
   return {
     totalFiles: files.length,
-    errors: 3,
-    warnings: 4,
-    toConfirm: 2,
+    errors,
+    warnings,
+    toConfirm: toConfirmItems.length,
     consistencyIssues,
     courseMatches,
     formatIssues,
@@ -151,6 +167,23 @@ export default function DocSelfCheck() {
     if (!course.trim()) return courseList.slice(0, 30);
     const q = course.toLowerCase();
     return courseList.filter((s) => s.toLowerCase().includes(q)).slice(0, 30);
+  }, [course, grade]);
+
+  // 判断当前输入的课程是否在课程总表中
+  const courseInList = useMemo(() => {
+    const courseList = (coursesData as Record<string, string[]>)[grade] || [];
+    return courseList.some((c) => c === course.trim());
+  }, [course, grade]);
+
+  // 判断是否模糊匹配（输入了部分但未完全匹配）
+  const courseFuzzyMatch = useMemo(() => {
+    if (!course.trim()) return null;
+    const courseList = (coursesData as Record<string, string[]>)[grade] || [];
+    const q = course.trim().toLowerCase();
+    const match = courseList.find((c) => c.toLowerCase() === q);
+    if (match) return null;
+    const similar = courseList.find((c) => c.toLowerCase().includes(q) || q.includes(c.toLowerCase()));
+    return similar || null;
   }, [course, grade]);
 
   const handleFiles = useCallback(async (fileList: FileList | null) => {
@@ -243,12 +276,19 @@ export default function DocSelfCheck() {
     };
     setStepStatus(initial);
 
-    // 模拟逐步检查
-    const delays = [600, 800, 1000, 700, 500, 400];
+    // 模拟逐步检查（耗时与文件数相关，看起来更真实）
+    const baseDelays: Record<CheckStep, number> = {
+      integrity: 500,
+      format: 800 + files.length * 200,
+      consistency: 1000 + files.length * 150,
+      course: 600,
+      confirm: 400,
+      report: 700,
+    };
     for (let i = 0; i < stepNames.length; i++) {
       const step = stepNames[i];
       setStepStatus((prev) => ({ ...prev, [step]: 'loading' }));
-      await new Promise((resolve) => setTimeout(resolve, delays[i]));
+      await new Promise((resolve) => setTimeout(resolve, baseDelays[step]));
       setStepStatus((prev) => ({ ...prev, [step]: 'completed' }));
     }
 
@@ -378,8 +418,9 @@ ${(result?.toConfirmItems || []).map((i, idx) =>
       // 按 location 提取文件名，归类问题
       const fileIssues: Record<string, CheckResultItem[]> = {};
       allIssues.forEach((item) => {
-        const match = item.location.match(/^([^·]+)\s*·/);
-        const fileName = match ? match[1].trim() : '其他';
+        const match = item.location.match(/^([^·]+?)(?:\.[a-zA-Z0-9]+)?\s*·/);
+        const rawName = match ? match[1].trim() : '其他';
+        const fileName = rawName.replace(/\.(docx|doc|xlsx|xls|pdf|txt)$/i, '');
         if (!fileIssues[fileName]) fileIssues[fileName] = [];
         fileIssues[fileName].push(item);
       });
@@ -582,6 +623,38 @@ ${items.map((item, idx) =>
                       {s}
                     </button>
                   ))}
+                </div>
+              )}
+              {course.trim() && !courseInList && (
+                <div className="mt-2 text-xs">
+                  {courseFuzzyMatch ? (
+                    <p className="text-amber-600 flex items-center gap-1">
+                      <AlertCircle className="w-3 h-3" />
+                      未找到完全匹配，你是说「
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCourse(courseFuzzyMatch);
+                          setShowSuggestions(false);
+                        }}
+                        className="underline font-medium hover:text-amber-700"
+                      >
+                        {courseFuzzyMatch}
+                      </button>
+                      」吗？
+                    </p>
+                  ) : (
+                    <p className="text-amber-600 flex items-center gap-1">
+                      <AlertCircle className="w-3 h-3" />
+                      该课程不在{grade}级课程总表中，可继续检查但定位校验可能不准确
+                    </p>
+                  )}
+                </div>
+              )}
+              {course.trim() && courseInList && (
+                <div className="mt-2 text-xs text-green-600 flex items-center gap-1">
+                  <CheckCircle2 className="w-3 h-3" />
+                  已匹配{grade}级课程总表
                 </div>
               )}
             </div>
