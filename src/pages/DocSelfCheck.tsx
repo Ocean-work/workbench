@@ -36,6 +36,197 @@ const stepLabels: Record<CheckStep, string> = {
   report: '生成报告',
 };
 
+// ============================================================
+// 自动识别：从文件名提取年级和课程名称
+// ============================================================
+
+/** 常见文件类型关键词（识别时需剔除） */
+const FILE_TYPE_KEYWORDS = [
+  '教案', '授课计划', '教学大纲', '大纲', '考核方案', '评分细则',
+  '教学进度表', '进度表', '实验指导书', '封面', '封皮', '内页',
+  '成绩', '试卷', '试题', '答案', '参考答案', '课程标准',
+  '教学日历', '教学日志', '说课稿', '教学设计', '教学方案',
+  '课程思政', '教学反思', '课程总结', '教学总结',
+];
+
+/** 常见版本/编号关键词（识别时需剔除） */
+const VERSION_PATTERNS = [
+  /v\d+\.?\d*/gi,           // v1, v1.0, V001
+  /版本\d*\.?\d*/g,         // 版本1.0
+  /第[一二三四五六七八九十\d]+版/g, // 第一版
+  /_final$/gi,
+  /_new$/gi,
+  /_old$/gi,
+  /_draft$/gi,
+  /初稿|终稿|定稿|修订版|修改版|最新版/g,
+];
+
+/** 分隔符列表 */
+const SEPARATORS = /[_\-\s《》【】\[\]()（）「」『』、，,。.]+/g;
+
+/**
+ * 从文件名列表中识别年级
+ * @returns 识别到的年级（如 "2025"），未识别到返回 null
+ */
+function detectGrade(fileNames: string[]): string | null {
+  const gradeCounts: Record<string, number> = {};
+  const gradeRegex = /20\d{2}级/g;
+
+  for (const name of fileNames) {
+    const matches = name.match(gradeRegex);
+    if (matches) {
+      for (const m of matches) {
+        const year = m.replace('级', '');
+        gradeCounts[year] = (gradeCounts[year] || 0) + 1;
+      }
+    }
+  }
+
+  if (Object.keys(gradeCounts).length === 0) return null;
+
+  // 取出现频率最高的
+  return Object.entries(gradeCounts)
+    .sort((a, b) => b[1] - a[1])[0][0];
+}
+
+/**
+ * 从文件名中提取课程名称关键词
+ * 去掉：文件后缀、年级信息、文件类型关键词、版本号、分隔符等
+ */
+function extractCourseKeywords(fileName: string): string {
+  let name = fileName;
+
+  // 去掉文件后缀
+  name = name.replace(/\.(docx|doc|zip|pdf)$/i, '');
+
+  // 去掉路径部分（zip 解压的可能有路径）
+  name = name.split('/').pop() || name;
+  name = name.split('\\').pop() || name;
+
+  // 去掉年级信息
+  name = name.replace(/20\d{2}级/g, '');
+  name = name.replace(/20\d{2}学年/g, '');
+  name = name.replace(/\d{4}\s*-\s*\d{4}学年/g, '');
+
+  // 去掉学期信息
+  name = name.replace(/第[一二三四1234]\s*学期/g, '');
+  name = name.replace(/[上中下]学期/g, '');
+  name = name.replace(/春季学期|秋季学期/g, '');
+
+  // 去掉版本号相关
+  for (const pattern of VERSION_PATTERNS) {
+    name = name.replace(pattern, '');
+  }
+
+  // 去掉文件类型关键词（从长到短匹配，避免短词先匹配）
+  const sortedKeywords = [...FILE_TYPE_KEYWORDS].sort((a, b) => b.length - a.length);
+  for (const kw of sortedKeywords) {
+    name = name.replace(new RegExp(kw, 'g'), '');
+  }
+
+  // 去掉专业/班级相关
+  name = name.replace(/\d{4}班/g, '');
+  name = name.replace(/动画|数媒|数媒艺术|数字媒体|设计|专业/g, '');
+
+  // 去掉分隔符
+  name = name.replace(SEPARATORS, ' ').trim();
+
+  // 压缩多余空格
+  name = name.replace(/\s+/g, ' ').trim();
+
+  return name;
+}
+
+/**
+ * 计算两个字符串的相似度（基于字符重合度）
+ * 返回 0-1 之间的数值，越大越相似
+ */
+function stringSimilarity(a: string, b: string): number {
+  if (!a || !b) return 0;
+  if (a === b) return 1;
+
+  const setA = new Set(a.split(''));
+  const setB = new Set(b.split(''));
+
+  let common = 0;
+  for (const char of setA) {
+    if (setB.has(char)) common++;
+  }
+
+  // 字符重合度 + 长度差异惩罚
+  const charSimilarity = common / Math.max(setA.size, setB.size);
+  const lenRatio = Math.min(a.length, b.length) / Math.max(a.length, b.length);
+
+  // 额外奖励：关键词包含关系
+  const containsBonus = a.includes(b) || b.includes(a) ? 0.2 : 0;
+
+  return Math.min(1, charSimilarity * 0.5 + lenRatio * 0.3 + containsBonus);
+}
+
+/**
+ * 从文件名列表中识别课程名称
+ * @param fileNames 文件名列表
+ * @param grade 年级
+ * @param courseTable 课程总表
+ * @returns 识别结果 { course: string, matchType: 'exact' | 'fuzzy' | 'none' }
+ */
+function detectCourseName(
+  fileNames: string[],
+  grade: string,
+  courseTable: Record<string, string[]>
+): { course: string; matchType: 'exact' | 'fuzzy' | 'none' } {
+  const courseList = courseTable[grade] || [];
+  if (courseList.length === 0) return { course: '', matchType: 'none' };
+
+  // 从每个文件名提取关键词
+  const keywords = fileNames
+    .map((name) => extractCourseKeywords(name))
+    .filter((k) => k.length >= 2); // 至少2个字才算有效关键词
+
+  if (keywords.length === 0) return { course: '', matchType: 'none' };
+
+  let bestMatch = '';
+  let bestScore = 0;
+  let isExact = false;
+
+  for (const keyword of keywords) {
+    // 先尝试精确匹配
+    const exactMatch = courseList.find((c) => c === keyword);
+    if (exactMatch) {
+      return { course: exactMatch, matchType: 'exact' };
+    }
+
+    // 再尝试包含匹配
+    const includeMatch = courseList.find((c) => c.includes(keyword) || keyword.includes(c));
+    if (includeMatch) {
+      const score = stringSimilarity(keyword, includeMatch);
+      if (score > bestScore) {
+        bestScore = score;
+        bestMatch = includeMatch;
+        isExact = false;
+      }
+      continue;
+    }
+
+    // 最后模糊匹配
+    for (const course of courseList) {
+      const score = stringSimilarity(keyword, course);
+      if (score > bestScore) {
+        bestScore = score;
+        bestMatch = course;
+        isExact = false;
+      }
+    }
+  }
+
+  // 匹配度阈值：至少 0.4 才算匹配成功
+  if (bestScore >= 0.4 && bestMatch) {
+    return { course: bestMatch, matchType: isExact ? 'exact' : 'fuzzy' };
+  }
+
+  return { course: '', matchType: 'none' };
+}
+
 export default function DocSelfCheck() {
   const [files, setFiles] = useState<UploadedFile[]>([]);
   const [isDragging, setIsDragging] = useState(false);
@@ -45,6 +236,11 @@ export default function DocSelfCheck() {
   const [isChecking, setIsChecking] = useState(false);
   const [initLoading, setInitLoading] = useState(false);
   const [initError, setInitError] = useState<string | null>(null);
+  // 自动识别状态
+  const [autoDetectInfo, setAutoDetectInfo] = useState<{
+    gradeDetected: boolean;
+    courseMatchType: 'exact' | 'fuzzy' | 'none' | 'idle';
+  }>({ gradeDetected: false, courseMatchType: 'idle' });
   const [stepStatus, setStepStatus] = useState<Record<CheckStep, StepStatus>>({
     integrity: 'idle',
     format: 'idle',
@@ -123,8 +319,37 @@ export default function DocSelfCheck() {
       }
     }
 
-    setFiles((prev) => [...prev, ...newFiles]);
-  }, []);
+    if (newFiles.length === 0) return;
+
+    setFiles((prev) => {
+      const allFiles = [...prev, ...newFiles];
+      const allNames = allFiles.map((f) => f.name);
+
+      // ---- 自动识别年级 ----
+      const detectedGrade = detectGrade(allNames);
+      if (detectedGrade && detectedGrade !== grade) {
+        setGrade(detectedGrade);
+        setAutoDetectInfo((prev) => ({ ...prev, gradeDetected: true }));
+      }
+
+      // ---- 自动识别课程名称 ----
+      const gradeToUse = detectedGrade || grade;
+      const courseResult = detectCourseName(
+        allNames,
+        gradeToUse,
+        coursesData as Record<string, string[]>
+      );
+
+      if (courseResult.course && courseResult.course !== course) {
+        setCourse(courseResult.course);
+        setAutoDetectInfo((prev) => ({ ...prev, courseMatchType: courseResult.matchType }));
+      } else if (!courseResult.course) {
+        setAutoDetectInfo((prev) => ({ ...prev, courseMatchType: 'none' }));
+      }
+
+      return allFiles;
+    });
+  }, [grade, course]);
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
@@ -142,7 +367,14 @@ export default function DocSelfCheck() {
   };
 
   const removeFile = (id: string) => {
-    setFiles((prev) => prev.filter((f) => f.id !== id));
+    setFiles((prev) => {
+      const newFiles = prev.filter((f) => f.id !== id);
+      // 如果删完了，重置自动识别状态
+      if (newFiles.length === 0) {
+        setAutoDetectInfo({ gradeDetected: false, courseMatchType: 'idle' });
+      }
+      return newFiles;
+    });
   };
 
   const formatSize = (bytes: number) => {
@@ -519,12 +751,26 @@ ${items.map((item, idx) =>
 
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">
-                年级
-              </label>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-sm font-medium text-slate-700">
+                  年级
+                </label>
+                {autoDetectInfo.gradeDetected && (
+                  <span className="text-[11px] text-green-600 flex items-center gap-1">
+                    <CheckCircle2 className="w-3 h-3" />
+                    自动识别
+                  </span>
+                )}
+              </div>
               <select
                 value={grade}
-                onChange={(e) => setGrade(e.target.value)}
+                onChange={(e) => {
+                  setGrade(e.target.value);
+                  // 用户手动修改时，清除自动识别状态
+                  if (autoDetectInfo.gradeDetected) {
+                    setAutoDetectInfo((prev) => ({ ...prev, gradeDetected: false }));
+                  }
+                }}
                 className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-azure-500/30 focus:border-azure-500 transition-shadow bg-white"
               >
                 <option value="2023">2023级</option>
@@ -534,9 +780,29 @@ ${items.map((item, idx) =>
             </div>
 
             <div className="relative" ref={suggestionRef}>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">
-                课程名称
-              </label>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-sm font-medium text-slate-700">
+                  课程名称
+                </label>
+                {autoDetectInfo.courseMatchType === 'exact' && (
+                  <span className="text-[11px] text-green-600 flex items-center gap-1">
+                    <CheckCircle2 className="w-3 h-3" />
+                    精确匹配
+                  </span>
+                )}
+                {autoDetectInfo.courseMatchType === 'fuzzy' && (
+                  <span className="text-[11px] text-amber-600 flex items-center gap-1">
+                    <AlertCircle className="w-3 h-3" />
+                    近似匹配
+                  </span>
+                )}
+                {autoDetectInfo.courseMatchType === 'none' && files.length > 0 && (
+                  <span className="text-[11px] text-slate-400 flex items-center gap-1">
+                    <HelpCircle className="w-3 h-3" />
+                    未识别
+                  </span>
+                )}
+              </div>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                 <input
@@ -545,6 +811,10 @@ ${items.map((item, idx) =>
                   onChange={(e) => {
                     setCourse(e.target.value);
                     setShowSuggestions(true);
+                    // 用户手动修改时，清除自动识别状态
+                    if (autoDetectInfo.courseMatchType !== 'idle') {
+                      setAutoDetectInfo((prev) => ({ ...prev, courseMatchType: 'idle' }));
+                    }
                   }}
                   onFocus={() => setShowSuggestions(true)}
                   onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
