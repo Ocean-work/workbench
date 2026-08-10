@@ -40,12 +40,12 @@ export async function initPyodide(): Promise<void> {
     try {
       console.log('[Pyodide] 正在加载 Pyodide 运行时（自托管）...');
       
-      // 动态加载 Pyodide
-      const { loadPyodide } = await import('pyodide');
-      
       // 自托管 Pyodide，适配 GitHub Pages 子路径
-      const baseUrl = import.meta.env.BASE_URL || './';
+      const baseUrl = import.meta.env.BASE_URL || '/';
       const pyodideUrl = `${baseUrl}pyodide/`;
+      
+      // 直接从自托管路径加载 pyodide.mjs，不走 npm 包入口（避免 npm 包内部走 CDN）
+      const { loadPyodide } = await import(/* @vite-ignore */ `${pyodideUrl}pyodide.mjs`);
       
       pyodideInstance = await loadPyodide({
         indexURL: pyodideUrl,
@@ -59,10 +59,7 @@ export async function initPyodide(): Promise<void> {
       console.log('[Pyodide] 依赖包安装完成，正在加载自检引擎...');
 
       // 加载 Python 自检引擎脚本
-      const scriptUrl = new URL(
-        '/pyodide/selfcheck_engine.py',
-        window.location.origin + (import.meta.env.BASE_URL || './')
-      ).href;
+      const scriptUrl = `${pyodideUrl}selfcheck_engine.py`;
       
       const scriptResponse = await fetch(scriptUrl);
       if (!scriptResponse.ok) {
@@ -94,7 +91,7 @@ export async function initPyodide(): Promise<void> {
  * 加载所有规则库
  */
 async function loadAllRules(): Promise<void> {
-  const baseUrl = import.meta.env.BASE_URL || './';
+  const baseUrl = import.meta.env.BASE_URL || '/';
   
   const loadPromises = RULE_LIBRARIES.map(async (ruleName) => {
     try {
