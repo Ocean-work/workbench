@@ -38,13 +38,17 @@ export async function initPyodide(): Promise<void> {
 
   initPromise = (async () => {
     try {
-      console.log('[Pyodide] 正在加载 Pyodide 运行时...');
+      console.log('[Pyodide] 正在加载 Pyodide 运行时（自托管）...');
       
       // 动态加载 Pyodide
       const { loadPyodide } = await import('pyodide');
       
+      // 自托管 Pyodide，适配 GitHub Pages 子路径
+      const baseUrl = import.meta.env.BASE_URL || './';
+      const pyodideUrl = `${baseUrl}pyodide/`;
+      
       pyodideInstance = await loadPyodide({
-        indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.26.2/full/',
+        indexURL: pyodideUrl,
       });
 
       console.log('[Pyodide] 运行时加载完成，正在安装依赖包...');

@@ -702,7 +702,7 @@ ${items.map((item, idx) =>
             <p className="font-medium mb-1">💡 技术说明</p>
             <p className="text-azure-600">
               本模块使用 Pyodide (Python WebAssembly) 在浏览器端直接运行 Python 检查逻辑，
-              无需后端服务。首次使用需下载 Python 运行时（约20MB），请耐心等待。
+              无需后端服务。首次使用需加载 Python 运行时（约13MB），请耐心等待。
             </p>
           </div>
           {annotatedFiles.length > 0 && (
