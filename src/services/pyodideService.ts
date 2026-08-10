@@ -53,8 +53,40 @@ export async function initPyodide(): Promise<void> {
 
       console.log('[Pyodide] 运行时加载完成，正在安装依赖包...');
 
-      // 安装 python-docx 和 lxml
-      await pyodideInstance.loadPackage(['python-docx', 'lxml']);
+      // 第一步：加载 Pyodide 官方仓库中的包（lxml 在官方仓库中）
+      // python-docx 不在官方仓库，需要用 micropip 从 PyPI 安装
+      await pyodideInstance.loadPackage(['micropip', 'lxml']);
+      console.log('[Pyodide] lxml 和 micropip 安装完成');
+
+      // 第二步：用 micropip 安装 python-docx（从自托管路径加载，避免 PyPI 访问问题）
+      console.log('[Pyodide] 正在安装 python-docx...');
+      const wheelsUrl = `${pyodideUrl}wheels/`;
+      await pyodideInstance.runPythonAsync(`
+import micropip
+# 从自托管路径安装 python-docx 及其依赖
+await micropip.install([
+    '${wheelsUrl}typing_extensions-4.16.0-py3-none-any.whl',
+    '${wheelsUrl}python_docx-1.2.0-py3-none-any.whl',
+])
+print('python-docx installed successfully from self-hosted wheels')
+`);
+      console.log('[Pyodide] python-docx 安装完成');
+
+      // 验证依赖是否可用
+      const depsOk = pyodideInstance.runPython(`
+try:
+    from docx import Document
+    from lxml import etree
+    print('deps ok: docx and lxml available')
+    True
+except ImportError as e:
+    print(f'deps error: {e}')
+    False
+`);
+      console.log(`[Pyodide] 依赖验证结果: ${depsOk}`);
+      if (!depsOk) {
+        throw new Error('Python 依赖安装失败，docx 或 lxml 不可用');
+      }
 
       console.log('[Pyodide] 依赖包安装完成，正在加载自检引擎...');
 
