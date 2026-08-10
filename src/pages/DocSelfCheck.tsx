@@ -124,9 +124,8 @@ function extractCourseKeywords(fileName: string): string {
     name = name.replace(new RegExp(kw, 'g'), '');
   }
 
-  // 去掉专业/班级相关
+  // 去掉班级相关
   name = name.replace(/\d{4}班/g, '');
-  name = name.replace(/动画|数媒|数媒艺术|数字媒体|设计|专业/g, '');
 
   // 去掉分隔符
   name = name.replace(SEPARATORS, ' ').trim();
