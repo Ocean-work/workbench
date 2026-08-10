@@ -1,0 +1,379 @@
+{
+  "generated_at": "2026-08-05T15:49:03.337909",
+  "source_file": "动画20XX级《XXXX》课程教学大纲（理论+实验）有修订25.2.28_1785891713797_1_pm9p.docx",
+  "headings": {},
+  "body": {
+    "字体": "西文:宋体, 中文:宋体",
+    "字号": "小四",
+    "对齐": "两端对齐",
+    "行距": "1270倍行距",
+    "首行缩进": "2字符"
+  },
+  "tables": [
+    {
+      "rows": 6,
+      "cols": 5,
+      "字体": "西文:宋体, 中文:宋体",
+      "字号": null
+    },
+    {
+      "rows": 7,
+      "cols": 7,
+      "字体": "西文:宋体, 中文:宋体",
+      "字号": null
+    },
+    {
+      "rows": 4,
+      "cols": 6,
+      "字体": "中文:宋体",
+      "字号": "小四"
+    }
+  ],
+  "header_footer": [],
+  "base_info": [
+    {
+      "text": "……（字体：小四，行距：固定值24，段落首行空两字符）",
+      "count": 2
+    },
+    {
+      "text": "平时成绩占比：（包括考勤、随堂测验、课后作业、课程报告等）",
+      "count": 2
+    },
+    {
+      "text": "期末成绩占比：（考试、作品等）",
+      "count": 2
+    }
+  ],
+  "full_text": [
+    {
+      "style": "Normal",
+      "text": "《×××》教学大纲",
+      "is_heading": false
+    },
+    {
+      "style": "Normal",
+      "text": "理论(含实验)",
+      "is_heading": false
+    },
+    {
+      "style": "Normal",
+      "text": "一、课程基本信息",
+      "is_heading": false
+    },
+    {
+      "style": "Normal",
+      "text": "课程代码：【    】",
+      "is_heading": false
+    },
+    {
+      "style": "Normal",
+      "text": "开课部门：【    】",
+      "is_heading": false
+    },
+    {
+      "style": "Normal",
+      "text": "课程类别：【    】",
+      "is_heading": false
+    },
+    {
+      "style": "Normal",
+      "text": "课程性质：【    】",
+      "is_heading": false
+    },
+    {
+      "style": "Normal",
+      "text": "课程学时：【    】，其中理论学时【   】，实验学时【   】",
+      "is_heading": false
+    },
+    {
+      "style": "Normal",
+      "text": "课程学分：【    】",
+      "is_heading": false
+    },
+    {
+      "style": "Normal",
+      "text": "开课学期：【    】",
+      "is_heading": false
+    },
+    {
+      "style": "Normal",
+      "text": "适用专业：【    】",
+      "is_heading": false
+    },
+    {
+      "style": "Normal",
+      "text": "先修课程：【    】",
+      "is_heading": false
+    },
+    {
+      "style": "Normal",
+      "text": "二、课程概述",
+      "is_heading": false
+    },
+    {
+      "style": "Normal",
+      "text": "（建议：从课程性质、作用、定位、设计等方面表述说明）",
+      "is_heading": false
+    },
+    {
+      "style": "reader-word-layer",
+      "text": "……（字体：小四，行距：固定值24，段落首行空两字符）",
+      "is_heading": false
+    },
+    {
+      "style": "Normal",
+      "text": "三、课程目标",
+      "is_heading": false
+    },
+    {
+      "style": "reader-word-layer",
+      "text": "……（字体：小四，行距：固定值24，段落首行空两字符）",
+      "is_heading": false
+    },
+    {
+      "style": "Normal",
+      "text": "（一）知识目标：",
+      "is_heading": false
+    },
+    {
+      "style": "Normal",
+      "text": "1.",
+      "is_heading": false
+    },
+    {
+      "style": "Normal",
+      "text": "2.",
+      "is_heading": false
+    },
+    {
+      "style": "HTML Preformatted",
+      "text": "（二）能力目标：",
+      "is_heading": false
+    },
+    {
+      "style": "Normal",
+      "text": "（三）素质目标：",
+      "is_heading": false
+    },
+    {
+      "style": "Normal",
+      "text": "（四）思政目标：",
+      "is_heading": false
+    },
+    {
+      "style": "Normal",
+      "text": "四、理论部分",
+      "is_heading": false
+    },
+    {
+      "style": "Normal",
+      "text": "(一）课程内容与设计",
+      "is_heading": false
+    },
+    {
+      "style": "Normal",
+      "text": "（二）学时分配及教学方法",
+      "is_heading": false
+    },
+    {
+      "style": "Normal",
+      "text": "五、实验部分",
+      "is_heading": false
+    },
+    {
+      "style": "Body Text",
+      "text": "（一）实验课的目的与基本要求",
+      "is_heading": false
+    },
+    {
+      "style": "Body Text",
+      "text": "（注：说明实验课程的地位和通过实验使学生了解、掌握哪些方面的知识和技能，具体达到什么程度和目的。教学的重点、教学方法、对学生的要求等）",
+      "is_heading": false
+    },
+    {
+      "style": "Body Text",
+      "text": "（二）实验课教学内容与学时分配",
+      "is_heading": false
+    },
+    {
+      "style": "Body Text",
+      "text": "1.实验项目学时安排",
+      "is_heading": false
+    },
+    {
+      "style": "Body Text",
+      "text": "2.实验项目教学内容",
+      "is_heading": false
+    },
+    {
+      "style": "Body Text",
+      "text": "实验一：×××××××",
+      "is_heading": false
+    },
+    {
+      "style": "Body Text",
+      "text": "实验目标：",
+      "is_heading": false
+    },
+    {
+      "style": "Body Text",
+      "text": "实验内容：",
+      "is_heading": false
+    },
+    {
+      "style": "Body Text",
+      "text": "实验方式与基本要求：",
+      "is_heading": false
+    },
+    {
+      "style": "Body Text",
+      "text": "（注：1.实验方式要说明实验教学手段；2.基本要求指为保证实验教学效果，对学生提出实验的基本要求和注意事项。）",
+      "is_heading": false
+    },
+    {
+      "style": "Body Text",
+      "text": "实验二：×××××××",
+      "is_heading": false
+    },
+    {
+      "style": "Normal",
+      "text": "六、课程考核",
+      "is_heading": false
+    },
+    {
+      "style": "Normal",
+      "text": "（一）成绩构成",
+      "is_heading": false
+    },
+    {
+      "style": "Normal",
+      "text": "1.平时成绩占比：（包括考勤、随堂测验、课后作业、课程报告等）",
+      "is_heading": false
+    },
+    {
+      "style": "Normal",
+      "text": "2.期末成绩占比：（考试、作品等）",
+      "is_heading": false
+    },
+    {
+      "style": "Normal",
+      "text": "（二）考核方式",
+      "is_heading": false
+    },
+    {
+      "style": "Normal",
+      "text": "1.理论考核：考查/考试",
+      "is_heading": false
+    },
+    {
+      "style": "Normal",
+      "text": "平时成绩占比：（包括考勤、随堂测验、课后作业、课程报告等）",
+      "is_heading": false
+    },
+    {
+      "style": "Normal",
+      "text": "期末成绩占比：（考试、作品等）",
+      "is_heading": false
+    },
+    {
+      "style": "Normal",
+      "text": "2.实验考核：考查/考试",
+      "is_heading": false
+    },
+    {
+      "style": "Normal",
+      "text": "平时成绩占比：（包括考勤、随堂测验、课后作业、课程报告等）",
+      "is_heading": false
+    },
+    {
+      "style": "Normal",
+      "text": "期末成绩占比：（考试、作品等）",
+      "is_heading": false
+    },
+    {
+      "style": "Normal",
+      "text": "说明：具体见北海艺术设计学院非笔试类考试（考查）课程考核方案审批表、非笔试类考试（考查）课程考核评分要点及细则、课程平时成绩考核评分细则。",
+      "is_heading": false
+    },
+    {
+      "style": "Normal",
+      "text": "七、推荐教材及课程资源",
+      "is_heading": false
+    },
+    {
+      "style": "Normal",
+      "text": "（建议有相关课程思政教学资源的也可列入）",
+      "is_heading": false
+    },
+    {
+      "style": "Normal",
+      "text": "（一）课程教材",
+      "is_heading": false
+    },
+    {
+      "style": "Normal",
+      "text": "主要责任者.文献题名.出版地:出版者,出版年.",
+      "is_heading": false
+    },
+    {
+      "style": "Normal",
+      "text": "（二）主要参考书目",
+      "is_heading": false
+    },
+    {
+      "style": "Normal",
+      "text": "[序号] 主要责任者.文献题名.出版地:出版者,出版年.",
+      "is_heading": false
+    },
+    {
+      "style": "Normal",
+      "text": "网络教学资源",
+      "is_heading": false
+    },
+    {
+      "style": "Normal",
+      "text": "1.线上教学平台：如MOOC、SPOC等。",
+      "is_heading": false
+    },
+    {
+      "style": "Normal",
+      "text": "2.设计类资源网站：如xxxx等。",
+      "is_heading": false
+    },
+    {
+      "style": "Normal",
+      "text": "3.课程思政资源：如国家精品在线开放课程、思政教育平台等。",
+      "is_heading": false
+    },
+    {
+      "style": "Normal",
+      "text": "八、其他说明",
+      "is_heading": false
+    },
+    {
+      "style": "Normal",
+      "text": "……",
+      "is_heading": false
+    },
+    {
+      "style": "Normal",
+      "text": "大纲制（修）订人：",
+      "is_heading": false
+    },
+    {
+      "style": "Normal",
+      "text": "教研室主任：",
+      "is_heading": false
+    },
+    {
+      "style": "Normal",
+      "text": "教学副院长：",
+      "is_heading": false
+    },
+    {
+      "style": "Normal",
+      "text": "日期：",
+      "is_heading": false
+    }
+  ]
+}

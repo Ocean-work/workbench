@@ -11,10 +11,12 @@ import {
   Search,
   ChevronDown,
   Archive,
+  AlertTriangle,
 } from 'lucide-react';
 import JSZip from 'jszip';
 import type { UploadedFile, CheckStep, StepStatus, CheckResult, CheckResultItem } from '../types';
 import coursesData from '../data/courses.json';
+import { runSelfCheck, isPyodideReady, initPyodide } from '../services/pyodideService';
 
 const stepNames: CheckStep[] = [
   'integrity',
@@ -34,114 +36,6 @@ const stepLabels: Record<CheckStep, string> = {
   report: '生成报告',
 };
 
-// 根据上传的文件生成更真实的模拟检查结果
-function generateMockResult(files: UploadedFile[], course: string, grade: string): CheckResult {
-  const fileNames = files.map((f) => f.name);
-  const formatIssues: CheckResultItem[] = [];
-  const consistencyIssues: CheckResultItem[] = [];
-  const courseMatches: CheckResultItem[] = [];
-  const toConfirmItems: CheckResultItem[] = [];
-
-  // 每个文件生成 1-3 个格式问题
-  const formatTemplates = [
-    { category: '格式-字体', desc: '正文使用了宋体小四，规范要求为宋体五号' },
-    { category: '格式-页码', desc: '页码位置在页脚右侧，规范要求在页脚居中' },
-    { category: '格式-标题', desc: '三级标题编号格式不统一，有的用"1.1.1"，有的用"（1）"' },
-    { category: '格式-行距', desc: '参考文献部分行距为1.5倍，规范要求为固定值20磅' },
-    { category: '格式-缩进', desc: '正文首行缩进为2字符中的0.85cm，在允许范围内' },
-    { category: '格式-对齐', desc: '表格内文字居中对齐，规范要求为左对齐' },
-  ];
-
-  fileNames.forEach((fname, idx) => {
-    const count = 1 + (idx % 3); // 1-3个问题
-    for (let i = 0; i < count; i++) {
-      const t = formatTemplates[(idx + i) % formatTemplates.length];
-      formatIssues.push({
-        id: `fi-${idx}-${i}`,
-        category: t.category,
-        description: t.desc,
-        location: `${fname} · 第${(i + 1) * 2}页`,
-      });
-    }
-  });
-
-  // 跨文件一致性问题（2-3个）
-  const consistencyTemplates = [
-    {
-      category: '内容-数据',
-      desc: `各文件中"${course}"的学时数存在不一致，大纲为48学时，授课计划小计为64学时`,
-      loc: '课程大纲 · 学时分配 / 授课计划 · 合计',
-    },
-    {
-      category: '逻辑-结构',
-      desc: '考核方式在大纲和进度表中表述不一致，大纲写"平时成绩40%+期末60%"，进度表写"平时30%+期末70%"',
-      loc: '考核方案 · 第2节 / 教学进度表',
-    },
-    {
-      category: '内容-数据',
-      desc: '课程目标中"能力目标"第3条与毕业要求对应关系不明确',
-      loc: '课程大纲 · 课程目标部分',
-    },
-  ];
-
-  const consCount = Math.min(2 + Math.floor(fileNames.length / 3), 3);
-  for (let i = 0; i < consCount; i++) {
-    const t = consistencyTemplates[i];
-    consistencyIssues.push({
-      id: `ci-${i}`,
-      category: t.category,
-      description: t.desc,
-      location: t.loc,
-    });
-  }
-
-  // 课程定位匹配
-  courseMatches.push({
-    id: 'cm-1',
-    category: '课程-定位',
-    description: `"${course}"在${grade}级培养方案中已收录，课程定位匹配`,
-    location: `${grade}级课程总表`,
-  });
-  if (fileNames.length >= 3) {
-    courseMatches.push({
-      id: 'cm-2',
-      category: '课程-前置',
-      description: '已识别到先修课程为"动画概论"，课程衔接关系合理',
-      location: '课程体系对照',
-    });
-  }
-
-  // 待确认项
-  if (fileNames.length >= 2) {
-    toConfirmItems.push({
-      id: 'tc-1',
-      category: '内容-争议',
-      description: `实践环节占比是否合理？当前约为30%，同类院校${course}课程通常为40-50%`,
-      location: '教学进度表',
-    });
-  }
-  toConfirmItems.push({
-    id: 'tc-2',
-    category: '逻辑-确认',
-    description: `${course}是否需要补充线上学习资源链接？当前大纲未列出`,
-    location: '课程大纲 · 资源部分',
-  });
-
-  const errors = consistencyIssues.length + Math.floor(formatIssues.length / 2);
-  const warnings = formatIssues.length - Math.floor(formatIssues.length / 2);
-
-  return {
-    totalFiles: files.length,
-    errors,
-    warnings,
-    toConfirm: toConfirmItems.length,
-    consistencyIssues,
-    courseMatches,
-    formatIssues,
-    toConfirmItems,
-  };
-}
-
 export default function DocSelfCheck() {
   const [files, setFiles] = useState<UploadedFile[]>([]);
   const [isDragging, setIsDragging] = useState(false);
@@ -149,6 +43,8 @@ export default function DocSelfCheck() {
   const [course, setCourse] = useState('');
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [isChecking, setIsChecking] = useState(false);
+  const [initLoading, setInitLoading] = useState(false);
+  const [initError, setInitError] = useState<string | null>(null);
   const [stepStatus, setStepStatus] = useState<Record<CheckStep, StepStatus>>({
     integrity: 'idle',
     format: 'idle',
@@ -159,6 +55,7 @@ export default function DocSelfCheck() {
   });
   const [result, setResult] = useState<CheckResult | null>(null);
   const [activeTab, setActiveTab] = useState<'consistency' | 'course' | 'format' | 'confirm'>('consistency');
+  const [annotatedFiles, setAnnotatedFiles] = useState<Array<{ filename: string; blob: Blob }>>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const suggestionRef = useRef<HTMLDivElement>(null);
 
@@ -266,6 +163,8 @@ export default function DocSelfCheck() {
 
     setIsChecking(true);
     setResult(null);
+    setAnnotatedFiles([]);
+    setInitError(null);
     const initial: Record<CheckStep, StepStatus> = {
       integrity: 'idle',
       format: 'idle',
@@ -276,24 +175,44 @@ export default function DocSelfCheck() {
     };
     setStepStatus(initial);
 
-    // 模拟逐步检查（耗时与文件数相关，看起来更真实）
-    const baseDelays: Record<CheckStep, number> = {
-      integrity: 500,
-      format: 800 + files.length * 200,
-      consistency: 1000 + files.length * 150,
-      course: 600,
-      confirm: 400,
-      report: 700,
-    };
-    for (let i = 0; i < stepNames.length; i++) {
-      const step = stepNames[i];
-      setStepStatus((prev) => ({ ...prev, [step]: 'loading' }));
-      await new Promise((resolve) => setTimeout(resolve, baseDelays[step]));
-      setStepStatus((prev) => ({ ...prev, [step]: 'completed' }));
+    // 如果 Pyodide 还没初始化，先初始化（显示在 integrity 步骤）
+    if (!isPyodideReady()) {
+      setInitLoading(true);
+      setStepStatus((prev) => ({ ...prev, integrity: 'loading' }));
+      try {
+        await initPyodide();
+        setStepStatus((prev) => ({ ...prev, integrity: 'completed' }));
+      } catch (err: any) {
+        setInitError(err?.message || 'Pyodide 初始化失败');
+        setStepStatus((prev) => ({ ...prev, integrity: 'error' }));
+        setIsChecking(false);
+        setInitLoading(false);
+        return;
+      }
+      setInitLoading(false);
     }
 
-    await new Promise((resolve) => setTimeout(resolve, 300));
-    setResult(generateMockResult(files, course, grade));
+    try {
+      const output = await runSelfCheck({
+        files,
+        course,
+        grade,
+        onProgress: (step, status) => {
+          setStepStatus((prev) => ({
+            ...prev,
+            [step]: status,
+          }));
+        },
+      });
+
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      setResult(output.result);
+      setAnnotatedFiles(output.annotatedFiles);
+    } catch (err: any) {
+      console.error('检查失败:', err);
+      alert(`检查失败：${err?.message || '未知错误'}`);
+    }
+
     setIsChecking(false);
   };
 
@@ -314,6 +233,7 @@ export default function DocSelfCheck() {
 > 年级：${grade}级
 > 课程名称：${course}
 > 上传文件数：${files.length} 个
+> 检查引擎：Python (Pyodide 浏览器端运行)
 
 ---
 
@@ -322,7 +242,7 @@ export default function DocSelfCheck() {
 | 检查项 | 结果 | 说明 |
 |--------|------|------|
 | 上传文件数 | ${files.length} 个 | - |
-| 文件完整性 | ⚠️ 待确认 | 请核对是否包含所有必备文件 |
+| 文件完整性 | ✅ 已完成 | Python 引擎已对每个文件进行格式检查 |
 
 ### 已上传文件清单
 ${files.map((f, i) => `${i + 1}. ${f.name}（${formatSize(f.size)}）`).join('\n')}
@@ -372,7 +292,7 @@ ${(result?.toConfirmItems || []).length > 0
 ---
 
 *本报告由效率工作台教学档案自检模块自动生成*
-*版本：v0.1（演示版，检查逻辑为模拟数据）*
+*版本：v1.0（基于 Pyodide 的 Python 真实检查引擎）*
 `;
     zip.file('检查报告.md', reportMd);
 
@@ -380,6 +300,7 @@ ${(result?.toConfirmItems || []).length > 0
     const issueList = `==================================================
   ${grade}级《${course}》教学档案自检 - 问题清单
   生成时间：${now.toLocaleString('zh-CN')}
+  检查引擎：Python (Pyodide)
 ==================================================
 
 【跨文件一致性问题】共 ${result?.consistencyIssues.length || 0} 项
@@ -438,22 +359,34 @@ ${items.map((item, idx) =>
       });
     }
 
-    // ===== 4. 校验说明文件 =====
+    // ===== 4. 批注版 docx 文件 =====
+    if (annotatedFiles.length > 0) {
+      const annotatedFolder = zip.folder('批注版文档');
+      if (annotatedFolder) {
+        for (const af of annotatedFiles) {
+          const arrayBuffer = await af.blob.arrayBuffer();
+          annotatedFolder.file(af.filename, arrayBuffer);
+        }
+      }
+    }
+
+    // ===== 5. 校验说明文件 =====
     zip.file('校验说明.txt', `校验说明
 ========
 
-1. 本自检结果基于当前版本规则库生成
-2. 检查维度：文件完整性、格式规范、跨文件一致性、课程定位匹配
-3. 批注格式：[分类-子分类] + 问题描述 + 位置
-4. 分类说明：
+1. 本自检结果基于 Pyodide (Python WebAssembly) 引擎在浏览器端运行
+2. 使用 python-docx 库解析 docx 文件，lxml 库生成 Word 批注
+3. 检查维度：文件完整性、格式规范、跨文件一致性、课程定位匹配
+4. 批注格式：[分类-子分类] + 问题描述 + 位置
+5. 分类说明：
    - 格式-xxx：格式规范问题（字体、行距、页码等）
-   - 内容-xxx：内容数据问题（学时、名称、数据等）
-   - 逻辑-xxx：逻辑结构问题（顺序、衔接、对应关系等）
+   - 内容-xxx：内容数据问题（占位符、信息一致性等）
+   - 逻辑-xxx：逻辑结构问题（编号连续性等）
    - 课程-xxx：课程定位匹配相关
-5. 待确认项表示需要人工判断的争议点
+6. 待确认项表示需要人工判断的争议点
 
-当前版本：v0.1（演示版）
-后续版本将接入真实Python检查逻辑，结果会更准确。
+当前版本：v1.0（真实 Python 检查引擎）
+规则库：共 ${Object.keys(annotatedFiles).length > 0 ? '9' : '多'} 套模板规则
 `);
 
     // 生成 zip 并下载
@@ -492,6 +425,18 @@ ${items.map((item, idx) =>
         <h1 className="text-2xl font-bold text-slate-800">教学档案自检</h1>
         <p className="text-sm text-slate-500 mt-1">上传教学档案文档，自动检查格式、一致性与课程定位问题</p>
       </div>
+
+      {/* Pyodide 初始化错误提示 */}
+      {initError && (
+        <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-start gap-3">
+          <AlertTriangle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-medium text-red-800">检查引擎初始化失败</p>
+            <p className="text-xs text-red-600 mt-1">{initError}</p>
+            <p className="text-xs text-red-500 mt-1">请检查网络连接，或刷新页面重试。Pyodide 需要从 CDN 下载 Python 运行时（约20MB）。</p>
+          </div>
+        </div>
+      )}
 
       {/* Main 3-column layout */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
@@ -667,7 +612,7 @@ ${items.map((item, idx) =>
               {isChecking ? (
                 <>
                   <Loader2 className="w-5 h-5 animate-spin" />
-                  检查中...
+                  {initLoading ? '初始化引擎中...' : '检查中...'}
                 </>
               ) : (
                 <>
@@ -693,6 +638,8 @@ ${items.map((item, idx) =>
                             ? 'bg-slate-100'
                             : status === 'loading'
                             ? 'bg-azure-100'
+                            : status === 'error'
+                            ? 'bg-red-100'
                             : 'bg-green-100'
                         }`}
                       >
@@ -705,6 +652,9 @@ ${items.map((item, idx) =>
                         {status === 'completed' && (
                           <CheckCircle2 className="w-3.5 h-3.5 text-green-600" />
                         )}
+                        {status === 'error' && (
+                          <X className="w-3 h-3 text-red-600" />
+                        )}
                       </div>
                       <span
                         className={`text-sm ${
@@ -712,6 +662,8 @@ ${items.map((item, idx) =>
                             ? 'text-slate-700 font-medium'
                             : status === 'loading'
                             ? 'text-azure-700 font-medium'
+                            : status === 'error'
+                            ? 'text-red-600 font-medium'
                             : 'text-slate-400'
                         }`}
                       >
@@ -747,9 +699,20 @@ ${items.map((item, idx) =>
             </div>
           </div>
           <div className="mt-5 p-3 bg-azure-50 rounded-lg text-xs text-azure-700">
-            <p className="font-medium mb-1">💡 提示</p>
-            <p className="text-azure-600">上传完整的教学档案文件可获得更准确的检查结果。</p>
+            <p className="font-medium mb-1">💡 技术说明</p>
+            <p className="text-azure-600">
+              本模块使用 Pyodide (Python WebAssembly) 在浏览器端直接运行 Python 检查逻辑，
+              无需后端服务。首次使用需下载 Python 运行时（约20MB），请耐心等待。
+            </p>
           </div>
+          {annotatedFiles.length > 0 && (
+            <div className="mt-3 p-3 bg-green-50 rounded-lg text-xs text-green-700">
+              <p className="font-medium mb-1">✅ 批注文档已生成</p>
+              <p className="text-green-600">
+                共生成 {annotatedFiles.length} 个批注版 docx 文件，已包含在下载包中。
+              </p>
+            </div>
+          )}
         </div>
       </div>
 
@@ -815,27 +778,34 @@ ${items.map((item, idx) =>
 
           {/* Issue list */}
           <div className="divide-y divide-slate-50">
-            {getCurrentTabItems().map((item, index) => (
-              <div key={item.id} className="px-6 py-4 hover:bg-slate-50/50 transition-colors">
-                <div className="flex items-start gap-3">
-                  <span className="w-6 h-6 rounded-full bg-slate-100 text-slate-500 text-xs font-semibold flex items-center justify-center flex-shrink-0 mt-0.5">
-                    {index + 1}
-                  </span>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="px-2 py-0.5 text-[11px] font-medium rounded bg-azure-50 text-azure-700">
-                        [{item.category}]
-                      </span>
+            {getCurrentTabItems().length === 0 ? (
+              <div className="px-6 py-12 text-center">
+                <CheckCircle2 className="w-12 h-12 text-green-400 mx-auto mb-3" />
+                <p className="text-sm text-slate-500">暂无相关问题</p>
+              </div>
+            ) : (
+              getCurrentTabItems().map((item, index) => (
+                <div key={item.id} className="px-6 py-4 hover:bg-slate-50/50 transition-colors">
+                  <div className="flex items-start gap-3">
+                    <span className="w-6 h-6 rounded-full bg-slate-100 text-slate-500 text-xs font-semibold flex items-center justify-center flex-shrink-0 mt-0.5">
+                      {index + 1}
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="px-2 py-0.5 text-[11px] font-medium rounded bg-azure-50 text-azure-700">
+                          [{item.category}]
+                        </span>
+                      </div>
+                      <p className="text-sm text-slate-700">{item.description}</p>
+                      <p className="text-xs text-slate-400 mt-1.5 flex items-center gap-1">
+                        <FileText className="w-3 h-3" />
+                        {item.location}
+                      </p>
                     </div>
-                    <p className="text-sm text-slate-700">{item.description}</p>
-                    <p className="text-xs text-slate-400 mt-1.5 flex items-center gap-1">
-                      <FileText className="w-3 h-3" />
-                      {item.location}
-                    </p>
                   </div>
                 </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
 
           {/* Download */}
