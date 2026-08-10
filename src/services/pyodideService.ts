@@ -66,9 +66,43 @@ export async function initPyodide(): Promise<void> {
         throw new Error(`加载自检引擎失败: ${scriptResponse.status}`);
       }
       const scriptText = await scriptResponse.text();
+      console.log(`[Pyodide] 自检引擎脚本已获取，共 ${scriptText.length} 字符`);
       
-      // 在 Pyodide 中执行脚本
-      pyodideInstance.runPython(scriptText);
+      // 方式1：通过 FS 写入文件再 import（更可靠，确保模块正确注册）
+      pyodideInstance.FS.writeFile('/home/pyodide/selfcheck_engine.py', scriptText);
+      
+      // 方式2：同时用 runPython 执行一遍，确保函数进入全局命名空间
+      try {
+        pyodideInstance.runPython(scriptText);
+      } catch (e: any) {
+        console.error('[Pyodide] 自检引擎脚本执行失败:', e);
+        throw new Error(`自检引擎执行失败: ${e.message || e}`);
+      }
+      
+      // 验证 run_check 是否可用
+      const hasRunCheck = pyodideInstance.globals.has('run_check');
+      console.log(`[Pyodide] run_check 函数是否可用: ${hasRunCheck}`);
+      
+      if (!hasRunCheck) {
+        // 尝试通过 import 方式加载
+        try {
+          pyodideInstance.runPython(`
+import sys
+sys.path.insert(0, '/home/pyodide')
+from selfcheck_engine import run_check as _rc
+import __main__
+__main__.run_check = _rc
+`);
+          const hasRunCheck2 = pyodideInstance.globals.has('run_check');
+          console.log(`[Pyodide] import 方式加载后 run_check 是否可用: ${hasRunCheck2}`);
+          if (!hasRunCheck2) {
+            throw new Error('run_check 函数仍不可用');
+          }
+        } catch (e2: any) {
+          console.error('[Pyodide] import 方式加载也失败:', e2);
+          throw new Error(`自检引擎加载失败: run_check 函数未找到（${e2.message || e2}）`);
+        }
+      }
 
       console.log('[Pyodide] 自检引擎加载完成');
       
