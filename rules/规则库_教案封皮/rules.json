@@ -1,0 +1,76 @@
+{
+  "generated_at": "2026-08-05T10:51:53.072632",
+  "source_file": "《XXX》课程教案（封皮及首页 ）有修订2.28_1785895105057_0_o0ng.docx",
+  "headings": {
+    "Heading 3": {
+      "count": 1,
+      "字体": null,
+      "字号": null,
+      "加粗": null,
+      "对齐": null,
+      "行距": null
+    }
+  },
+  "body": {
+    "字体": "西文:宋体",
+    "字号": "18.0pt",
+    "对齐": "居中对齐",
+    "行距": "1.5",
+    "首行缩进": null
+  },
+  "tables": [
+    {
+      "rows": 6,
+      "cols": 2,
+      "字体": "西文:宋体",
+      "字号": "18.0pt"
+    },
+    {
+      "rows": 9,
+      "cols": 5,
+      "字体": null,
+      "字号": "10.5pt"
+    }
+  ],
+  "header_footer": [
+    {
+      "type": "footer",
+      "content": "",
+      "字体": null,
+      "字号": null
+    }
+  ],
+  "base_info": [],
+  "full_text": [
+    {
+      "style": "Normal",
+      "text": "教  案",
+      "is_heading": false
+    },
+    {
+      "style": "Normal",
+      "text": "202  -202  学年第   学期",
+      "is_heading": false
+    },
+    {
+      "style": "Normal",
+      "text": "年   月   日",
+      "is_heading": false
+    },
+    {
+      "style": "Normal",
+      "text": "北海艺术设计学院教务处制",
+      "is_heading": false
+    },
+    {
+      "style": "Heading 3",
+      "text": "北海艺术设计学院教案（首页）",
+      "is_heading": true
+    },
+    {
+      "style": "Normal",
+      "text": "说明：本页用于一门课程实施方案的整体设计。",
+      "is_heading": false
+    }
+  ]
+}
